@@ -15,7 +15,7 @@ RUN go mod download
 COPY . .
 
 # build static, optimisé
-RUN go build -ldflags="-s -w" -o /app/server ./...
+RUN go build -o /app/server .
 
 # Final image minimal (scratch)
 FROM scratch
