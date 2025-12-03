@@ -18,7 +18,7 @@ var upgrader = websocket.Upgrader{
 var b = board.NewBoard(200, 200)
 
 func handler(w http.ResponseWriter, r *http.Request) {
-
+	log.Println("[WS HANDLER] Incomming connxion")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("[WS HANDLER] Cant upgrader conn: %v", err)

@@ -51,7 +51,7 @@ func RegisterClients(client *Client) {
 }
 func UnregisterClients(client *Client) {
 	client.Active = false
-	client.Conn.Close()
+	defer client.Conn.Close()
 	delete(actives.clients, client.Id)
 }
 
