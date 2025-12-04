@@ -23,7 +23,7 @@ class Drawer {
   }
 
   clean() {
-    this.ctx.fillStyle = "black"
+    this.ctx.fillStyle = DEAD_COLOR
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
   }
 
@@ -61,7 +61,6 @@ class Drawer {
 
 
   render(data) {
-    console.log("RenderFull")
     this.clean()
     this.ctx.fillStyle = ALIVE_COLOR
     this.ctx.beginPath();
@@ -169,15 +168,18 @@ function init() {
 
 
   function frame() {
-    if (state.dirty && state.latestBoard && !state.pause) {
+    if (state.dirty && state.latestBoard) {
       const start = Date.now()
       if (dw.w !== state.latestBoard.w || dw.h !== state.latestBoard.h) {
         dw.setDimension(state.latestBoard.w, state.latestBoard.h);
         dw.clean()
       }
-
-      dw.renderChanges(state.latestBoard.changes);
-      //dw.render(state.latestBoard.state)
+      console.log("TYPE", state.latestBoard.type)
+      if (state.latestBoard.type === "init") {
+        dw.render(state.latestBoard.state)
+      } else {
+        dw.renderChanges(state.latestBoard.changes);
+      }
       state.dirty = false;
       const end = Date.now()
       console.log(`Frame took: ${end - start}ms`)

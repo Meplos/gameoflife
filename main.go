@@ -29,6 +29,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	c := client.NewClient(conn)
 	defer client.UnregisterClients(c)
 	client.RegisterClients(c)
+	c.SendInitState(b)
 	go c.ExecCommand(b)
 	c.Listen()
 

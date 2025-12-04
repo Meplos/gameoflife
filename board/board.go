@@ -26,6 +26,7 @@ type BoardState struct {
 	H        uint     `json:"h"`
 	IsPaused bool     `json:"pause"`
 	Changes  []Change `json:"changes"`
+	Type     string   `json:"type"`
 }
 
 type Board struct {
@@ -35,6 +36,14 @@ type Board struct {
 	IsPaused bool          `json:"pause"`
 	mu       sync.Mutex
 	Changes  []Change `json:"changes"`
+}
+
+type InitialBoard struct {
+	W        uint          `json:"w"`
+	H        uint          `json:"h"`
+	Cells    [][]CellState `json:"state"`
+	IsPaused bool          `json:"pause"`
+	Type     string        `json:"type"`
 }
 
 func NewBoard(width, height uint) *Board {
@@ -164,7 +173,6 @@ func (b *Board) Restart() {
 	b.Pause()
 	b.Cells = Array2D[CellState](b.W, b.H)
 	b.Randomize(P)
-
 }
 
 func (b *Board) ToBoardState() BoardState {
@@ -173,5 +181,16 @@ func (b *Board) ToBoardState() BoardState {
 		H:        b.H,
 		Changes:  b.Changes,
 		IsPaused: b.IsPaused,
+		Type:     "change",
+	}
+}
+
+func (b *Board) ToInitialState() InitialBoard {
+	return InitialBoard{
+		W:        b.W,
+		H:        b.H,
+		Cells:    b.Cells,
+		IsPaused: b.IsPaused,
+		Type:     "init",
 	}
 }

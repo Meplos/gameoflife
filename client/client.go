@@ -50,6 +50,12 @@ func RegisterClients(client *Client) {
 	actives.clients[client.Id] = client
 	client.Active = true
 }
+
+func (client *Client) SendInitState(b *board.Board) {
+	client.Conn.WriteJSON(b.ToInitialState())
+
+}
+
 func UnregisterClients(client *Client) {
 	client.Active = false
 	defer client.Conn.Close()
@@ -82,8 +88,16 @@ func (c *Client) ExecCommand(b *board.Board) {
 		case "play":
 			b.Play()
 		case "restart":
-			b.Restart()
+			actives.Restart(b)
 		}
+	}
+
+}
+
+func (ac *ActiveClients) Restart(b *board.Board) {
+	b.Restart()
+	for _, c := range ac.clients {
+		c.SendInitState(b)
 	}
 
 }
