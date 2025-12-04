@@ -15,7 +15,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var b = board.NewBoard(200, 200)
+var b = board.NewBoard(500, 500)
 
 func handler(w http.ResponseWriter, r *http.Request) {
 	log.Println("[WS HANDLER] Incomming connxion")
@@ -40,12 +40,12 @@ func main() {
 	http.Handle("/", fs)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(1 * time.Second / 15)
 		b.Restart()
 		for t := range ticker.C {
 			log.Printf("Tick %v, Alive: %v Running:%v\n", t, b.AliveCount(), !b.IsPaused)
 			b.Next()
-			client.Broadcast(*b)
+			client.Broadcast(b.ToBoardState())
 		}
 	}()
 

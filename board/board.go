@@ -8,20 +8,42 @@ import (
 
 const P = 0.15
 
-type Board struct {
+type CellState = bool
+
+const (
+	ALIVE CellState = true
+	DEAD  CellState = false
+)
+
+type Change struct {
+	X     int       `json:"x"`
+	Y     int       `json:"y"`
+	State CellState `json:"state"`
+}
+
+type BoardState struct {
 	W        uint     `json:"w"`
 	H        uint     `json:"h"`
-	Cells    [][]bool `json:"state"`
 	IsPaused bool     `json:"pause"`
+	Changes  []Change `json:"changes"`
+}
+
+type Board struct {
+	W        uint          `json:"w"`
+	H        uint          `json:"h"`
+	Cells    [][]CellState `json:"state"`
+	IsPaused bool          `json:"pause"`
 	mu       sync.Mutex
+	Changes  []Change `json:"changes"`
 }
 
 func NewBoard(width, height uint) *Board {
 	return &Board{
 		W:        width,
 		H:        height,
-		Cells:    Array2D(width, height),
+		Cells:    Array2D[CellState](width, height),
 		IsPaused: true,
+		Changes:  make([]Change, 0),
 	}
 
 }
@@ -34,49 +56,59 @@ func (b *Board) Randomize(percent float32) {
 	alive := 0
 	for y := 0; y < int(b.H); y++ {
 		for x := 0; x < int(b.W); x++ {
-			v := rand.Float32() < percent
-			b.Cells[y][x] = v
-			if v {
+			v := DEAD
+			if rand.Float32() < percent {
+				v = ALIVE
 				alive++
 			}
+			b.Cells[y][x] = v
 		}
 	}
 	log.Printf("[Board.Randomize] p:%v alive:%d", percent, alive)
 }
-func Array2D(width, height uint) [][]bool {
+func Array2D[T any](width, height uint) [][]T {
 
-	array := make([][]bool, height)
+	array := make([][]T, height)
 	for i := range array {
-		array[i] = make([]bool, width)
+		array[i] = make([]T, width)
 	}
 	return array
 }
 
 func (b *Board) Next() {
+	b.Changes = make([]Change, 0)
 	if b.IsPaused {
 		return
 	}
-	newState := Array2D(b.W, b.H)
+	newState := Array2D[CellState](b.W, b.H)
 	for y := 0; y < int(b.H); y++ {
 		for x := 0; x < int(b.W); x++ {
 			newState[y][x] = b.processCell(x, y)
+			if newState[y][x] != b.Cells[y][x] {
+				b.Changes = append(b.Changes, Change{
+					X:     x,
+					Y:     y,
+					State: newState[y][x],
+				})
+
+			}
 		}
 	}
 	b.Cells = newState
 }
 
-func (b *Board) processCell(x, y int) bool {
-	alive := b.Cells[y][x]
+func (b *Board) processCell(x, y int) CellState {
+	e := b.Cells[y][x]
 	s := b.countNeighbors(x, y)
 	if s == 3 {
-		return true
+		return ALIVE
 	}
 
-	if alive && s == 2 {
-		return true
+	if e == ALIVE && s == 2 {
+		return ALIVE
 	}
 
-	return false
+	return DEAD
 }
 
 func (b *Board) countNeighbors(x, y int) int {
@@ -93,7 +125,7 @@ func (b *Board) countNeighbors(x, y int) int {
 				continue
 			}
 
-			if b.Cells[y+dy][x+dx] {
+			if b.Cells[y+dy][x+dx] == ALIVE {
 				count++
 			}
 		}
@@ -107,7 +139,7 @@ func (b *Board) AliveCount() int {
 
 	for _, row := range b.Cells {
 		for _, cell := range row {
-			if cell == true {
+			if cell == ALIVE {
 				n++
 			}
 		}
@@ -130,7 +162,16 @@ func (b *Board) Play() {
 
 func (b *Board) Restart() {
 	b.Pause()
-	b.Cells = Array2D(b.W, b.H)
+	b.Cells = Array2D[CellState](b.W, b.H)
 	b.Randomize(P)
 
+}
+
+func (b *Board) ToBoardState() BoardState {
+	return BoardState{
+		W:        b.W,
+		H:        b.H,
+		Changes:  b.Changes,
+		IsPaused: b.IsPaused,
+	}
 }

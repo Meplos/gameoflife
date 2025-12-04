@@ -13,7 +13,7 @@ import (
 type Client struct {
 	Id     uuid.UUID
 	Conn   *websocket.Conn
-	Send   chan board.Board
+	Send   chan board.BoardState
 	Active bool
 }
 
@@ -25,7 +25,7 @@ func NewClient(conn *websocket.Conn) *Client {
 	c := Client{
 		Id:     uuid.New(),
 		Conn:   conn,
-		Send:   make(chan board.Board),
+		Send:   make(chan board.BoardState),
 		Active: false,
 	}
 	return &c
@@ -56,7 +56,7 @@ func UnregisterClients(client *Client) {
 	delete(actives.clients, client.Id)
 }
 
-func Broadcast(b board.Board) {
+func Broadcast(b board.BoardState) {
 	for _, c := range actives.clients {
 		c.Send <- b
 	}

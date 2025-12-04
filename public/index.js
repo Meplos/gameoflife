@@ -1,6 +1,7 @@
-const SCALE = 15;
+const SCALE = 5;
 const DEBUG = "#6DC3BB"
-const CELL = "#9CC6DB"
+const ALIVE_COLOR = "#F4B342"
+const DEAD_COLOR = "black"
 
 class Drawer {
 
@@ -31,9 +32,38 @@ class Drawer {
   }
 
 
+  renderChanges(changes) {
+    const alives = []
+    const deads = []
+    changes.forEach(c => {
+      if (c.state) {
+        alives.push(c)
+        return
+      }
+      deads.push(c)
+    });
+
+
+    this.renderCells(deads, DEAD_COLOR)
+    this.renderCells(alives, ALIVE_COLOR)
+  }
+
+  renderCells(array, color) {
+    this.ctx.beginPath()
+    this.ctx.fillStyle = color
+    for (const c of array) {
+      this.drawCell(c.x, c.y)
+
+    }
+    this.ctx.fill()
+  }
+
+
+
   render(data) {
+    console.log("RenderFull")
     this.clean()
-    this.ctx.fillStyle = CELL
+    this.ctx.fillStyle = ALIVE_COLOR
     this.ctx.beginPath();
     for (let y = 0; y < this.h; y++) {
       const decodedState = data[y]
@@ -42,7 +72,7 @@ class Drawer {
         if (!cell) {
           continue;
         }
-        this.drawCell(x, y, CELL)
+        this.drawCell(x, y)
       }
     }
 
@@ -61,6 +91,7 @@ const CMD = {
 }
 
 class WindowState {
+
   constructor() {
     this.playPause = document.getElementById("playPause");
     this.playPause.addEventListener("click", function () {
@@ -71,9 +102,9 @@ class WindowState {
       this.send(CMD.PAUSE);
     }.bind(this))
 
-
     this.restart = document.getElementById("restart");
     this.restart.addEventListener("click", function () { this.send(CMD.RESTART) }.bind(this))
+
   }
 
   setSocket(socket) {
@@ -138,13 +169,18 @@ function init() {
 
 
   function frame() {
-    if (state.dirty && state.latestBoard) {
+    if (state.dirty && state.latestBoard && !state.pause) {
+      const start = Date.now()
       if (dw.w !== state.latestBoard.w || dw.h !== state.latestBoard.h) {
         dw.setDimension(state.latestBoard.w, state.latestBoard.h);
+        dw.clean()
       }
-      dw.clean();
-      dw.render(state.latestBoard.state);
+
+      dw.renderChanges(state.latestBoard.changes);
+      //dw.render(state.latestBoard.state)
       state.dirty = false;
+      const end = Date.now()
+      console.log(`Frame took: ${end - start}ms`)
     }
     requestAnimationFrame(frame);
   }
