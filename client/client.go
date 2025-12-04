@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 
 	"github.com/Meplos/GameOfLife/board"
@@ -67,7 +68,12 @@ func (c *Client) ExecCommand(b *board.Board) {
 		_, msg, err := c.Conn.ReadMessage()
 		if err != nil {
 			log.Printf("client exec: %v", err)
+			if errors.Is(err, websocket.ErrCloseSent) {
+				UnregisterClients(c)
+			}
+			return
 		}
+		log.Printf("Client.Receive %s", msg)
 		json.Unmarshal(msg, &incomming)
 
 		switch incomming.Cmd {
