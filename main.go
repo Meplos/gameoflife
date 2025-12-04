@@ -40,7 +40,7 @@ func main() {
 	http.Handle("/", fs)
 
 	go func() {
-		ticker := time.NewTicker(2 * time.Second)
+		ticker := time.NewTicker(1 * time.Second)
 		b.Restart()
 		for t := range ticker.C {
 			log.Printf("Tick %v, Alive: %v Running:%v\n", t, b.AliveCount(), !b.IsPaused)
