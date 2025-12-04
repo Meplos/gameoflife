@@ -10,6 +10,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const FPS = 60
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
@@ -40,7 +42,7 @@ func main() {
 	http.Handle("/", fs)
 
 	go func() {
-		ticker := time.NewTicker(1 * time.Second / 15)
+		ticker := time.NewTicker(1 * time.Second / FPS)
 		b.Restart()
 		for t := range ticker.C {
 			log.Printf("Tick %v, Alive: %v Running:%v\n", t, b.AliveCount(), !b.IsPaused)
