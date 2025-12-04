@@ -10,16 +10,27 @@ class Drawer {
     this.ctx = this.canvas.getContext("2d")
     this.debug = true
 
-    this.handleDebugButton()
 
   }
 
-  setDimension(w, h) {
-    if (this.w && this.h) return
-    this.w = w;
-    this.h = h;
-    this.canvas.width = w * SCALE;
-    this.canvas.height = h * SCALE;
+  setDimension() {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = this.canvas.getBoundingClientRect();
+
+    // grid size in cells based on CSS pixels
+    this.w = Math.floor(rect.width / SCALE);
+    this.h = Math.floor(rect.height / SCALE);
+
+    // set internal canvas size in device pixels
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (this.canvas.width !== width || this.canvas.height !== height) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+
+    // ensure drawing uses CSS pixel coordinates
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
   clean() {
@@ -78,21 +89,22 @@ class Drawer {
     this.ctx.fill();
   }
 
-  handleDebugButton() {
-    document.getElementById("debugBtn").addEventListener("click", () => this.debug = !this.debug)
-  }
 }
 
 const CMD = {
   PLAY: "play",
   PAUSE: "pause",
-  RESTART: "restart"
+  RESTART: "restart",
+  INIT: "init"
 }
 
 class WindowState {
 
   constructor() {
+    this.h = window.innerHeight / SCALE;
+    this.w = window.innerWidth / SCALE;
     this.playPause = document.getElementById("playPause");
+    this.setPlayPause(true)
     this.playPause.addEventListener("click", function () {
       if (this.pause) {
         this.send(CMD.PLAY);
@@ -102,7 +114,9 @@ class WindowState {
     }.bind(this))
 
     this.restart = document.getElementById("restart");
-    this.restart.addEventListener("click", function () { this.send(CMD.RESTART) }.bind(this))
+    this.restart.addEventListener("click", function () {
+      this.send(CMD.RESTART);
+    }.bind(this))
 
   }
 
@@ -118,6 +132,7 @@ class WindowState {
       return
     }
     this.playPause.innerHTML = "PAUSE";
+    renderFrame();
   }
 
   setState({ latestBoard, dirty }) {
@@ -125,10 +140,14 @@ class WindowState {
     this.dirty = dirty;
   }
 
-  send(cmd) {
-    this.ws.send(cmd)
+  init() {
+    this.send(CMD.INIT, { w: this.w, h: this.h })
   }
 
+
+  send(cmd, option) {
+    this.ws.send(cmd, option)
+  }
 }
 
 
@@ -139,41 +158,69 @@ class WsClient {
 
   connect() {
     console.log("WsClient.Connect")
-    this.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+    return new Promise((resolve) => {
 
-    this.ws.onmessage = (ev) => {
-      const latestBoard = JSON.parse(ev.data);
+      this.ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
 
-      this.windowState.setState({
-        latestBoard,
-        dirty: true
-      });
+      this.ws.onmessage = (ev) => {
+        const latestBoard = JSON.parse(ev.data);
 
-      this.windowState.setPlayPause(latestBoard.pause);
-    };
+        this.windowState.setState({
+          latestBoard,
+          dirty: true
+        });
+
+
+        this.windowState.setPlayPause(latestBoard.pause);
+      };
+      this.ws.addEventListener("open", () => resolve())
+    })
   }
 
-  send(cmd) {
-    this.ws.send(JSON.stringify({ cmd: cmd }))
+  send(cmd, options) {
+    const payload = { cmd: cmd }
+    if (options) {
+      payload.options = options
+    }
+    this.ws.send(JSON.stringify(payload))
   }
 
 }
 
-function init() {
-  const state = new WindowState()
-  const ws = new WsClient(state)
+let state;
+let dw;
+let ws;
+async function init() {
+  state = new WindowState()
+  dw = new Drawer();
+
+  // initialize canvas to full viewport and set grid size
+  dw.setDimension();
+  state.w = dw.w;
+  state.h = dw.h;
+
+  ws = new WsClient(state)
   state.setSocket(ws)
-  ws.connect()
-  const dw = new Drawer();
+  await ws.connect()
+  dw.clean()
+  state.init()
+
+  // handle viewport resize
+  window.addEventListener('resize', () => {
+    dw.setDimension();
+    state.w = dw.w;
+    state.h = dw.h;
+    state.send(CMD.INIT, { w: state.w, h: state.h });
+    dw.clean();
+  });
+}
 
 
+function renderFrame() {
   function frame() {
+    if (state.pause) return
     if (state.dirty && state.latestBoard) {
       const start = Date.now()
-      if (dw.w !== state.latestBoard.w || dw.h !== state.latestBoard.h) {
-        dw.setDimension(state.latestBoard.w, state.latestBoard.h);
-        dw.clean()
-      }
       console.log("TYPE", state.latestBoard.type)
       if (state.latestBoard.type === "init") {
         dw.render(state.latestBoard.state)
@@ -184,7 +231,7 @@ function init() {
       const end = Date.now()
       console.log(`Frame took: ${end - start}ms`)
     }
-    requestAnimationFrame(frame);
+    requestAnimationFrame(frame)
   }
   requestAnimationFrame(frame);
 }

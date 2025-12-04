@@ -3,9 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
-	"time"
 
-	"github.com/Meplos/GameOfLife/board"
 	"github.com/Meplos/GameOfLife/client"
 	"github.com/gorilla/websocket"
 )
@@ -17,10 +15,8 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-var b = board.NewBoard(500, 500)
-
 func handler(w http.ResponseWriter, r *http.Request) {
-	log.Println("[WS HANDLER] Incomming connxion")
+	log.Println("[WS HANDLER] Incomming connexion")
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("[WS HANDLER] Cant upgrader conn: %v", err)
@@ -29,8 +25,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	c := client.NewClient(conn)
 	defer client.UnregisterClients(c)
 	client.RegisterClients(c)
-	c.SendInitState(b)
-	go c.ExecCommand(b)
+	go c.ExecCommand()
 	c.Listen()
 
 }
@@ -39,18 +34,7 @@ func main() {
 	log.Printf("hello\n")
 	http.HandleFunc("/ws", handler)
 	fs := http.FileServer(http.Dir("./public"))
-
 	http.Handle("/", fs)
-
-	go func() {
-		ticker := time.NewTicker(1 * time.Second / FPS)
-		b.Restart()
-		for t := range ticker.C {
-			log.Printf("Tick %v, Alive: %v Running:%v\n", t, b.AliveCount(), !b.IsPaused)
-			b.Next()
-			client.Broadcast(b.ToBoardState())
-		}
-	}()
 
 	if err := http.ListenAndServe(":8081", nil); err != nil {
 		log.Fatalf("gol: error %v\n", err)

@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/Meplos/GameOfLife/board"
+	"github.com/Meplos/GameOfLife/gol"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -15,10 +16,17 @@ type Client struct {
 	Conn   *websocket.Conn
 	Send   chan board.BoardState
 	Active bool
+	Game   *gol.Game
+}
+
+type CmdOption struct {
+	H float64 `json:"h"`
+	W float64 `json:"w"`
 }
 
 type ClientCommand struct {
-	Cmd string `json:"cmd"`
+	Cmd     string    `json:"cmd"`
+	Options CmdOption `json:"options"`
 }
 
 func NewClient(conn *websocket.Conn) *Client {
@@ -37,6 +45,7 @@ type ActiveClients struct {
 
 func (c *Client) Listen() {
 	for b := range c.Send {
+		log.Printf("Message receive")
 		c.Conn.WriteJSON(b)
 	}
 }
@@ -62,13 +71,7 @@ func UnregisterClients(client *Client) {
 	delete(actives.clients, client.Id)
 }
 
-func Broadcast(b board.BoardState) {
-	for _, c := range actives.clients {
-		c.Send <- b
-	}
-}
-
-func (c *Client) ExecCommand(b *board.Board) {
+func (c *Client) ExecCommand() {
 	for {
 		var incomming ClientCommand
 		_, msg, err := c.Conn.ReadMessage()
@@ -81,23 +84,34 @@ func (c *Client) ExecCommand(b *board.Board) {
 		}
 		log.Printf("Client.Receive %s", msg)
 		json.Unmarshal(msg, &incomming)
-
 		switch incomming.Cmd {
+		case "init":
+			c.InitGame(incomming.Options)
 		case "pause":
-			b.Pause()
+			c.PauseGame()
 		case "play":
-			b.Play()
+			go c.StartGame()
 		case "restart":
-			actives.Restart(b)
+			c.RestartGame()
 		}
 	}
 
 }
 
-func (ac *ActiveClients) Restart(b *board.Board) {
-	b.Restart()
-	for _, c := range ac.clients {
-		c.SendInitState(b)
-	}
+func (c *Client) InitGame(o CmdOption) {
+	c.Game = gol.NewGame(uint(o.W), uint(o.H))
+	c.Game.Init()
 
+}
+func (c *Client) PauseGame() {
+	c.Game.B.Pause()
+}
+
+func (c *Client) StartGame() {
+	log.Printf("[client.Start] c: %v, game: %v\n", c.Id, c.Game.ID)
+	c.Game.Start(c.Send)
+}
+
+func (c *Client) RestartGame() {
+	c.Game.Restart()
 }

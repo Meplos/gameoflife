@@ -47,6 +47,7 @@ type InitialBoard struct {
 }
 
 func NewBoard(width, height uint) *Board {
+	log.Printf("[Board.NewBoard] H: %v W:%v", height, width)
 	return &Board{
 		W:        width,
 		H:        height,
@@ -66,7 +67,9 @@ func (b *Board) Randomize(percent float32) {
 	for y := 0; y < int(b.H); y++ {
 		for x := 0; x < int(b.W); x++ {
 			v := DEAD
-			if rand.Float32() < percent {
+			i := rand.Float32()
+			log.Printf("[Board.Randomize] p:%v i:%v", percent, i)
+			if i < percent {
 				v = ALIVE
 				alive++
 			}
